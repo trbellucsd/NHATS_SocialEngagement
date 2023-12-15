@@ -1,0 +1,278 @@
+# Load necessary libraries
+library(lme4)
+install.packages("nnet")
+library(nnet)
+install.packages("MASS")
+library(MASS)
+install.packages(c("nnet", "lme4", "MASS", "ordinal"))
+library(ordinal)
+# Load the parallel package
+library(parallel)
+# Install and load the tidyverse package
+if (!requireNamespace("tidyverse", quietly = TRUE)) {
+  install.packages("tidyverse")
+}
+library(tidyverse)
+
+# Install and load the stevemisc package
+if (!requireNamespace("stevemisc", quietly = TRUE)) {
+  install.packages("stevemisc")
+}
+library(stevemisc)
+
+# Install and load the stevedata package
+if (!requireNamespace("stevedata", quietly = TRUE)) {
+  install.packages("stevedata")
+}
+library(stevedata)
+
+# Install and load the lme4 package
+if (!requireNamespace("lme4", quietly = TRUE)) {
+  install.packages("lme4")
+}
+library(lme4)
+
+# Install and load the broom.mixed package
+if (!requireNamespace("broom.mixed", quietly = TRUE)) {
+  install.packages("broom.mixed")
+}
+library(broom.mixed)
+
+# Set the number of cores or threads
+# Choose the number based on the available resources on your machine
+# For example, set it to the number of physical CPU cores
+num_cores <- 4
+
+# Set the number of threads
+# This is relevant for some specific parallelized functions
+num_threads <- 4
+
+# Set the number of cores for parallel processing
+options(mc.cores = num_cores)
+
+# Set the number of threads (optional, depending on the functions used)
+setMKLthreads(num_threads)
+
+# Load the dataset
+data <- read.csv("C:/Users/trbell/Documents/NHATS/NHATS_SocialEngagement-Analysis.csv")
+
+# Declare the data as a longitudinal dataset
+data_long <- data
+data_long$spid <- factor(data_long$spid)
+data_long$time <- factor(data_long$time)
+data_long$cognition_R <- factor(data_long$cognition_R)
+data_long <- data_long[order(data_long$spid, data_long$time), ]
+
+data_long <- subset(data_long, dementia_BL != 1)
+
+
+##############################################
+#           EXECUTIVE FUNCTION               #      
+##############################################
+
+# Perform final fully-adjusted regressions for Executive function (clock-drawing)
+exec.sub <- subset(data_long, complete.cases(cog_exec_R,socengage_BL))
+# Create an ordinal variable based on quartiles
+exec.sub$ordinal_socengage_BL <- cut(exec.sub$socengage_BL, 
+                                     breaks = quantile(exec.sub$socengage_BL, probs = c(0, 0.25, 0.5, 0.75, 1)),
+                                     labels = c("Q1", "Q2", "Q3", "Q4"),
+                                     include.lowest = TRUE)
+
+
+exec.sub$ordinal_socengage_BL <- factor(exec.sub$ordinal_socengage_BL)
+
+
+model_exec_full <- lmer(cog_exec_R ~ socengage_BL + time  + socengage_BL * time + age_cont_BL + female_BL +
+                     race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                     depressed_BL + anxiety_BL + cond_num9_BL + eversmoker_BL + (1 | spid), data = exec.sub)
+model_exec <- lmer(cog_exec_R ~  age_cont_BL + female_BL +
+                     race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                     depressed_BL + anxiety_BL + cond_num9_BL + eversmoker_BL + (1 | spid), data = exec.sub)
+summary(model_exec)
+
+model_exec$cog_exec_R_res <- resid(model_exec)
+
+ggplot(exec.sub, aes(x = time, y = cog_exec_R_res, color = ordinal_socengage_BL, group = ordinal_socengage_BL)) +
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE,  size = 1.5) + 
+  labs(x = "Years Since Baseline",
+       y = "Executive Function",
+       color = "Social Engagement Tertile",
+       linetype = "Social Engagement Tertile") +   
+  scale_color_manual(values = c("Q1" = "salmon", "Q2" = "chartreuse4", "Q3" = "mediumpurple4", "Q4" = "cyan3")) +
+  scale_linetype_manual(values = c("Q1" = "dashed", "Q2" = "solid", "Q3" = "dotted", "Q4" = "dotdash")) +
+  theme_minimal()
+
+
+ggplot(exec.sub, aes(x = time, y = cog_exec_R_res, color = ordinal_socengage_BL, group = ordinal_socengage_BL)) +
+  geom_smooth(method = "loess", se = TRUE, fullrange = TRUE,  size = 1.5) + 
+  labs(x = "Years Since Baseline",
+       y = "Executive Function",
+       color = "Social Engagement Tertile",
+       linetype = "Social Engagement Tertile") +   
+  scale_color_manual(values = c("Q1" = "salmon", "Q2" = "chartreuse4", "Q3" = "mediumpurple4", "Q4" = "cyan3")) +
+  scale_linetype_manual(values = c("Q1" = "dashed", "Q2" = "solid", "Q3" = "dotted", "Q4" = "dotdash")) +
+  theme_minimal()
+
+##############################################
+#                      MEMORY               #      
+##############################################
+# Perform final fully-adjusted regressions for Memoryutive function (clock-drawing)
+memory.sub <- subset(data_long, complete.cases(cog_memory_R,socengage_BL))
+# Create an ordinal variable based on quartiles
+memory.sub$ordinal_socengage_BL <- cut(memory.sub$socengage_BL, 
+                                       breaks = quantile(memory.sub$socengage_BL, probs = c(0, 0.25, 0.5, 0.75, 1)),
+                                       labels = c("Q1", "Q2", "Q3", "Q4"),
+                                       include.lowest = TRUE)
+
+
+memory.sub$ordinal_socengage_BL <- factor(memory.sub$ordinal_socengage_BL)
+
+
+model_memory_full <- lmer(cog_memory_R ~ socengage_BL + time  + socengage_BL * time + age_cont_BL + female_BL +
+                       race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                       depressed_BL + anxiety_BL + cond_num9_BL + eversmoker_BL + (1 | spid), data = memory.sub)
+
+model_memory <- lmer(cog_memory_R ~  age_cont_BL + female_BL +
+                       race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                       depressed_BL + anxiety_BL + cond_num9_BL + eversmoker_BL + (1 | spid), data = memory.sub)
+summary(model_memory)
+
+memory.sub$cog_memory_R_res <- resid(model_memory)
+
+ggplot(memory.sub, aes(x = time, y = cog_memory_R_res, color = ordinal_socengage_BL, group = ordinal_socengage_BL)) +
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE,  size = 1.5) + 
+  labs(x = "Years Since Baseline",
+       y = "Memory Function",
+       color = "Social Engagement Tertile",
+       linetype = "Social Engagement Tertile") +   
+  scale_color_manual(values = c("Q1" = "salmon", "Q2" = "chartreuse4", "Q3" = "mediumpurple4", "Q4" = "cyan3")) +
+  scale_linetype_manual(values = c("Q1" = "dashed", "Q2" = "solid", "Q3" = "dotted", "Q4" = "dotdash")) +
+  theme_minimal()
+
+
+ggplot(memory.sub, aes(x = time, y = cog_memory_R_res, color = ordinal_socengage_BL, group = ordinal_socengage_BL)) +
+  geom_smooth(method = "loess", se = TRUE, fullrange = TRUE,  size = 1.5) + 
+  labs(x = "Years Since Baseline",
+       y = "Memory Function",
+       color = "Social Engagement Tertile",
+       linetype = "Social Engagement Tertile") +   
+  scale_color_manual(values = c("Q1" = "salmon", "Q2" = "chartreuse4", "Q3" = "mediumpurple4", "Q4" = "cyan3")) +
+  scale_linetype_manual(values = c("Q1" = "dashed", "Q2" = "solid", "Q3" = "dotted", "Q4" = "dotdash")) +
+  theme_minimal()
+
+
+
+
+##############################################
+#                 ORIENTATION               #      
+##############################################
+
+# Perform final fully-adjusted regressions for Orientutive function (clock-drawing)
+orient.sub <- subset(data_long, complete.cases(cog_orient_R,socengage_BL))
+# Create an ordinal variable based on quartiles
+orient.sub$ordinal_socengage_BL <- cut(orient.sub$socengage_BL, 
+                                       breaks = quantile(orient.sub$socengage_BL, probs = c(0, 0.25, 0.5, 0.75, 1)),
+                                       labels = c("Q1", "Q2", "Q3", "Q4"),
+                                       include.lowest = TRUE)
+
+
+orient.sub$ordinal_socengage_BL <- factor(orient.sub$ordinal_socengage_BL)
+
+
+model_orient_full <- lmer(cog_orient_R ~ socengage_BL + time  + socengage_BL * time + age_cont_BL + female_BL +
+                            race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                            depressed_BL + anxiety_BL + cond_num9_BL + eversmoker_BL + (1 | spid), data = orient.sub)
+
+model_orient <- lmer(cog_orient_R ~  age_cont_BL + female_BL +
+                       race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                       depressed_BL + anxiety_BL + cond_num9_BL + eversmoker_BL + (1 | spid), data = orient.sub)
+summary(model_orient)
+
+orient.sub$cog_orient_R_res <- resid(model_orient)
+
+ggplot(orient.sub, aes(x = time, y = cog_orient_R_res, color = ordinal_socengage_BL, group = ordinal_socengage_BL)) +
+  geom_smooth(method = "lm", se = TRUE, fullrange = TRUE,  size = 1.5) + 
+  labs(x = "Years Since Baseline",
+       y = "Orientation",
+       color = "Social Engagement Tertile",
+       linetype = "Social Engagement Tertile") +   
+  scale_color_manual(values = c("Q1" = "salmon", "Q2" = "chartreuse4", "Q3" = "mediumpurple4", "Q4" = "cyan3")) +
+  scale_linetype_manual(values = c("Q1" = "dashed", "Q2" = "solid", "Q3" = "dotted", "Q4" = "dotdash")) +
+  theme_minimal()
+
+
+ggplot(orient.sub, aes(x = time, y = cog_orient_R_res, color = ordinal_socengage_BL, group = ordinal_socengage_BL)) +
+  geom_smooth(method = "loess", se = TRUE, fullrange = TRUE,  size = 1.5) + 
+  labs(x = "Years Since Baseline",
+       y = "Orientation",
+       color = "Social Engagement Tertile",
+       linetype = "Social Engagement Tertile") +   
+  scale_color_manual(values = c("Q1" = "salmon", "Q2" = "chartreuse4", "Q3" = "mediumpurple4", "Q4" = "cyan3")) +
+  scale_linetype_manual(values = c("Q1" = "dashed", "Q2" = "solid", "Q3" = "dotted", "Q4" = "dotdash")) +
+  theme_minimal()
+
+
+
+# Secondary regressions of interest
+# Total cognition
+
+table(data_long$cognition_R)
+data_long$cognition_R <-as.numeric(data_long$cognition_R)
+# Assuming your data frame is named 'your_data'
+# Replace 'your_data' with the actual name of your data frame
+
+data_long$cognition_R_recode <- ifelse(data_long$cognition_R == 1, 0,
+                                     ifelse(data_long$cognition_R == 1, 1,
+                                            ifelse(data_long$cognition_R == 2, 1,
+                                                   ifelse(data_long$cognition_R== 3, 1, NA))))
+
+table(data_long$cognition_R_recode)
+data_long$cognition_R_recode <- factor(data_long$cognition_R_recode)
+
+model_cognition <- glmer(cognition_R_recode ~ socengage_BL * time + age_cont_BL + 
+                           female_BL + race_eth_BL + unmarried_BL + hsgrad_BL + 
+                           income_BL + depressed_BL + anxiety_BL + cond_num9_BL + 
+                           eversmoker_BL + (1 | spid), 
+                         data = data_long, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+summary(model_cognition)
+
+# Possible/probable dementia
+
+data_long$pdementia_R <- factor(data_long$pdementia_R)
+model_pdementia <- glmer(pdementia_R ~ scale(socengage_BL) + time + scale(age_cont_BL) + scale(socengage_BL)*time + scale(age_cont_BL) + female_BL + 
+                           race_eth_BL + unmarried_BL + hsgrad_BL + scale(income_BL) + 
+                           depressed_BL + anxiety_BL + cond_num9_BL + 
+                           eversmoker_BL + (1 | spid), data = data_long, family = binomial,  
+                         control = glmerControl(optimizer="bobyqa", optCtrl=list(maxfun=2e5)))
+summary(model_pdementia)
+# Install and load the brms package
+if (!requireNamespace("brms", quietly = TRUE)) {
+  install.packages("brms")
+}
+library(brms)
+
+# Fit the Bayesian logistic mixed-effects model using brm
+model_pdementia_brm <- brm(
+  cognition_R_recode ~ socengage_BL + time + age_cont_BL + socengage_BL * time + age_cont_BL +
+    female_BL + race_eth_BL + unmarried_BL + hsgrad_BL + income_BL +
+    depressed_BL + anxiety_BL + cond_num9_BL +
+    eversmoker_BL + (1 | spid),
+  data = data_long,
+  family = bernoulli(link = "logit"),
+  control = list(adapt_delta = 0.99, max_treedepth = 15)
+)
+
+# Display model summary
+summary(model_pdementia_brm)
+
+# Probable dementia only
+
+data_long$dementia_R <- factor(data_long$dementia_R)
+model_dementia <- glmer(pdementia_R ~ socengage_BL + time + age_cont_BL + socengage_BL * time + age_cont_BL + female_BL + 
+                  race_eth_BL + unmarried_BL + hsgrad_BL + income_BL + 
+                  depressed_BL + anxiety_BL + cond_num9_BL + 
+                  eversmoker_BL + (1 | spid), data = data_long, family = binomial)
+
+# Save the dataset
+#save(data_long, file = "C:\\Users\\12022\\OneDrive - Johns Hopkins\\Documents\\NHATS\\Social Engagement and Cognition\\NHATS_SocialEngagement-Analysis.RData")
